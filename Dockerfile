@@ -8,7 +8,7 @@ FROM n8nio/n8n:2.0.0
 # 환경변수 설정
 # ============================================
 ENV NODE_FUNCTION_ALLOW_BUILTIN=*
-ENV NODE_FUNCTION_ALLOW_EXTERNAL=axios,lodash,moment,dayjs,cheerio,node-fetch,uuid,crypto-js,xml2js,fast-xml-parser,csv-parser,papaparse,xlsx,exceljs,pdf-lib,pdfkit,handlebars,mustache,jsonwebtoken,bcryptjs,sharp,archiver,jszip,dotenv,qs,form-data,mime-types,iconv-lite,date-fns,numeral,validator,sanitize-html,markdown-it,marked,jose,nanoid,slugify
+ENV NODE_FUNCTION_ALLOW_EXTERNAL=axios,lodash,moment,dayjs,cheerio,node-fetch,uuid,crypto-js,xml2js,fast-xml-parser,csv-parser,papaparse,xlsx,exceljs,pdf-lib,handlebars,mustache,jsonwebtoken,bcryptjs,archiver,jszip,dotenv,qs,form-data,mime-types,iconv-lite,date-fns,numeral,validator,sanitize-html,markdown-it,marked,jose,nanoid,slugify,qrcode,docx
 ENV N8N_DIAGNOSTICS_ENABLED=false
 ENV N8N_HIRING_BANNER_ENABLED=false
 ENV EXECUTIONS_DATA_PRUNE=true
@@ -20,22 +20,18 @@ ENV GENERIC_TIMEZONE=Asia/Seoul
 # ============================================
 USER root
 
-# 시스템 의존성 (이미지 처리, PDF 등)
+# 시스템 의존성
 RUN apk add --no-cache \
     python3 \
     py3-pip \
     build-base \
-    cairo-dev \
-    pango-dev \
-    jpeg-dev \
-    giflib-dev \
-    librsvg-dev \
-    pixman-dev
+    g++ \
+    make
 
-# npm 패키지 설치 (업무자동화 필수)
+# npm 패키지 설치 (업무자동화 필수) - 네이티브 빌드 문제 패키지 제외
 WORKDIR /usr/local/lib/node_modules/n8n
 
-RUN npm install --save \
+RUN npm install --save --legacy-peer-deps \
     # === HTTP & API ===
     axios@1.6.0 \
     node-fetch@2.7.0 \
@@ -67,10 +63,6 @@ RUN npm install --save \
     exceljs@4.4.0 \
     # === PDF ===
     pdf-lib@1.17.1 \
-    pdfkit@0.14.0 \
-    # === 이미지 ===
-    sharp@0.33.2 \
-    jimp@0.22.12 \
     # === 압축 ===
     archiver@6.0.1 \
     jszip@3.10.1 \
@@ -92,7 +84,6 @@ RUN npm install --save \
     iconv-lite@0.6.3 \
     # === 바코드/QR ===
     qrcode@1.5.3 \
-    bwip-js@4.1.1 \
     # === 문서 생성 ===
     docx@8.5.0
 
@@ -103,32 +94,24 @@ RUN pip3 install --no-cache-dir --break-system-packages \
     requests \
     pandas \
     openpyxl \
-    xlrd \
     beautifulsoup4 \
-    lxml \
     python-dateutil \
     pytz \
     Pillow \
     PyPDF2 \
-    reportlab \
-    python-docx \
-    pyyaml \
-    boto3 \
-    google-api-python-client \
-    slack-sdk \
-    python-telegram-bot
+    pyyaml
 
 # ============================================
 # 정리 및 권한 설정
 # ============================================
-RUN apk del build-base && \
+RUN apk del build-base g++ make && \
     rm -rf /var/cache/apk/* /tmp/* /root/.npm
 
 USER node
 WORKDIR /home/node
 
 # 헬스체크
-HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
     CMD wget --no-verbose --tries=1 --spider http://localhost:5678/healthz || exit 1
 
 EXPOSE 5678
