@@ -1,0 +1,67 @@
+# render.yaml - Render Blueprint
+# n8n Custom Deployment Configuration
+
+services:
+  - type: web
+    name: n8n-custom
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    plan: starter  # starter, standard, pro
+    region: singapore  # 한국에서 가장 가까운 리전
+
+    envVars:
+      # === n8n 기본 설정 ===
+      - key: N8N_HOST
+        value: 0.0.0.0
+      - key: N8N_PORT
+        value: 5678
+      - key: N8N_PROTOCOL
+        value: https
+
+      # === Webhook URL (Render 대시보드에서 설정) ===
+      - key: WEBHOOK_URL
+        sync: false
+
+      # === 보안 ===
+      - key: N8N_ENCRYPTION_KEY
+        generateValue: true
+      - key: N8N_USER_MANAGEMENT_JWT_SECRET
+        generateValue: true
+
+      # === 데이터베이스 ===
+      - key: DB_TYPE
+        value: sqlite
+
+      # === 타임존 ===
+      - key: GENERIC_TIMEZONE
+        value: Asia/Seoul
+      - key: TZ
+        value: Asia/Seoul
+
+      # === 실행 설정 ===
+      - key: EXECUTIONS_DATA_PRUNE
+        value: "true"
+      - key: EXECUTIONS_DATA_MAX_AGE
+        value: "168"  # 7일
+
+      # === 기본 인증 (선택) ===
+      # - key: N8N_BASIC_AUTH_ACTIVE
+      #   value: "true"
+      # - key: N8N_BASIC_AUTH_USER
+      #   value: admin
+      # - key: N8N_BASIC_AUTH_PASSWORD
+      #   sync: false
+
+    # === 영구 스토리지 ===
+    disk:
+      name: n8n-data
+      mountPath: /home/node/.n8n
+      sizeGB: 1
+
+    # === 헬스체크 ===
+    healthCheckPath: /healthz
+
+    # === 빌드 설정 ===
+    buildFilter:
+      paths:
+        - Dockerfile
