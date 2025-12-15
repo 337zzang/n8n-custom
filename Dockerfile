@@ -1,5 +1,5 @@
 # n8n Custom Dockerfile for Business Automation
-# Alpine Linux + Python 3 지원
+# Alpine Linux + Python 3 + 가상환경 지원
 # 빌드 날짜: 2025-12
 FROM n8nio/n8n:2.0.0
 
@@ -20,9 +20,11 @@ ENV N8N_PROTOCOL=https
 # Python Task Runner 설정
 ENV N8N_RUNNERS_ENABLED=true
 ENV N8N_RUNNERS_MODE=internal
+# Python 가상환경 경로 지정 (중요!)
+ENV N8N_RUNNERS_PYTHON_VENV_PATH=/opt/n8n-python-venv
 
 # ========================================
-# Python 3 설치 (Alpine Linux)
+# Python 3 + 가상환경 설치 (Alpine Linux)
 # ========================================
 USER root
 WORKDIR /tmp
@@ -33,6 +35,7 @@ RUN apk add --no-cache \
     py3-pip \
     py3-setuptools \
     py3-wheel \
+    py3-virtualenv \
     # numpy/pandas 빌드에 필요한 패키지
     gcc \
     musl-dev \
@@ -42,8 +45,14 @@ RUN apk add --no-cache \
     libxml2-dev \
     libxslt-dev
 
-# Python 필수 라이브러리 설치
-RUN pip3 install --no-cache-dir --break-system-packages \
+# ========================================
+# n8n Python Task Runner 가상환경 생성
+# ========================================
+RUN python3 -m venv /opt/n8n-python-venv && \
+    /opt/n8n-python-venv/bin/pip install --upgrade pip setuptools wheel
+
+# 가상환경에 필수 라이브러리 설치
+RUN /opt/n8n-python-venv/bin/pip install --no-cache-dir \
     # HTTP/API 통신
     requests \
     httpx \
@@ -67,6 +76,9 @@ RUN pip3 install --no-cache-dir --break-system-packages \
     # 암호화
     cryptography \
     pyjwt
+
+# 가상환경 권한 설정 (node 사용자가 접근 가능하도록)
+RUN chown -R node:node /opt/n8n-python-venv
 
 # 빌드 도구 정리 (이미지 크기 최소화)
 RUN apk del gcc musl-dev python3-dev libffi-dev libxml2-dev libxslt-dev || true
