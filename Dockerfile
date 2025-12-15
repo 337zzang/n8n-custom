@@ -1,5 +1,5 @@
 # n8n Custom Dockerfile for Business Automation
-# Alpine Linux 호환 - 순수 JavaScript 패키지만 사용
+# Alpine Linux + Python 3 지원
 # 빌드 날짜: 2025-12
 FROM n8nio/n8n:2.0.0
 
@@ -13,11 +13,67 @@ ENV EXECUTIONS_DATA_PRUNE=true
 ENV EXECUTIONS_DATA_MAX_AGE=168
 ENV GENERIC_TIMEZONE=Asia/Seoul
 
+# Render/Railway 등 프록시 환경 설정
+ENV N8N_PROXY_HOPS=1
+ENV N8N_PROTOCOL=https
+
+# Python Task Runner 설정
+ENV N8N_RUNNERS_ENABLED=true
+ENV N8N_RUNNERS_MODE=internal
+
 # ========================================
-# 패키지 설치 (순수 JavaScript만)
+# Python 3 설치 (Alpine Linux)
 # ========================================
 USER root
 WORKDIR /tmp
+
+# Python 3 + pip + 빌드 도구 설치
+RUN apk add --no-cache \
+    python3 \
+    py3-pip \
+    py3-setuptools \
+    py3-wheel \
+    # numpy/pandas 빌드에 필요한 패키지
+    gcc \
+    musl-dev \
+    python3-dev \
+    libffi-dev \
+    # lxml 빌드에 필요
+    libxml2-dev \
+    libxslt-dev
+
+# Python 필수 라이브러리 설치
+RUN pip3 install --no-cache-dir --break-system-packages \
+    # HTTP/API 통신
+    requests \
+    httpx \
+    aiohttp \
+    # 데이터 처리
+    pandas \
+    numpy \
+    # HTML/XML 파싱
+    beautifulsoup4 \
+    lxml \
+    # Excel 처리
+    openpyxl \
+    xlsxwriter \
+    # 유틸리티
+    pyyaml \
+    python-dateutil \
+    pytz \
+    # JSON 처리
+    orjson \
+    pydantic \
+    # 암호화
+    cryptography \
+    pyjwt
+
+# 빌드 도구 정리 (이미지 크기 최소화)
+RUN apk del gcc musl-dev python3-dev libffi-dev libxml2-dev libxslt-dev || true
+
+# ========================================
+# JavaScript 패키지 설치 (순수 JavaScript만)
+# ========================================
 
 # 1. HTTP/API 통신 (3개)
 RUN npm install -g \
