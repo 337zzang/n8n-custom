@@ -1,5 +1,5 @@
 # n8n Custom Dockerfile for Business Automation
-# Alpine Linux + Python 3 + 가상환경 지원 (심링크 수정 버전)
+# JavaScript Only (Python 제거 - External mode 필요하므로)
 # 빌드 날짜: 2025-12
 FROM n8nio/n8n:2.0.0
 
@@ -18,94 +18,46 @@ ENV N8N_PROXY_HOPS=1
 ENV N8N_PROTOCOL=https
 
 # ========================================
-# Python 3 + 가상환경 설치 (Alpine Linux)
+# JavaScript 패키지 설치
 # ========================================
 USER root
 WORKDIR /tmp
 
-# Python 3 + pip + 빌드 도구 설치
-RUN apk add --no-cache \
-    python3 \
-    py3-pip \
-    py3-setuptools \
-    py3-wheel \
-    py3-virtualenv \
-    gcc \
-    musl-dev \
-    python3-dev \
-    libffi-dev \
-    libxml2-dev \
-    libxslt-dev
+# 1. HTTP/API 통신
+RUN npm install -g axios got node-fetch@2
 
-# ========================================
-# 핵심 수정: python -> python3 심링크 생성
-# ========================================
-RUN ln -sf /usr/bin/python3 /usr/bin/python
+# 2. 날짜/시간 처리
+RUN npm install -g moment dayjs date-fns luxon
 
-# ========================================
-# n8n Python Task Runner 가상환경 생성
-# ========================================
-RUN python3 -m venv /opt/n8n-python-venv && \
-    # python -> python3 심링크 (venv 내부)
-    ln -sf /opt/n8n-python-venv/bin/python3 /opt/n8n-python-venv/bin/python && \
-    /opt/n8n-python-venv/bin/pip install --upgrade pip setuptools wheel
+# 3. 데이터 처리/유틸리티 (Pandas 스타일!)
+RUN npm install -g lodash uuid nanoid danfojs-node arquero
 
-# 가상환경에 필수 라이브러리 설치
-RUN /opt/n8n-python-venv/bin/pip install --no-cache-dir \
-    requests \
-    httpx \
-    aiohttp \
-    pandas \
-    numpy \
-    beautifulsoup4 \
-    lxml \
-    openpyxl \
-    xlsxwriter \
-    pyyaml \
-    python-dateutil \
-    pytz \
-    orjson \
-    pydantic \
-    cryptography \
-    pyjwt
+# 4. HTML/XML 파싱
+RUN npm install -g cheerio xml2js fast-xml-parser sanitize-html
 
-# ========================================
-# 빌드 시점 검증 (스모크 테스트)
-# ========================================
-RUN echo "=== Smoke Test ===" && \
-    test -f /opt/n8n-python-venv/pyvenv.cfg && echo "✓ pyvenv.cfg exists" && \
-    test -x /opt/n8n-python-venv/bin/python && echo "✓ bin/python executable" && \
-    test -x /opt/n8n-python-venv/bin/python3 && echo "✓ bin/python3 executable" && \
-    /opt/n8n-python-venv/bin/python --version && \
-    ls -la /opt/n8n-python-venv/bin/ | head -10
+# 5. CSV/Excel/데이터 포맷
+RUN npm install -g papaparse xlsx js-yaml ajv
 
-# 가상환경 권한 설정
-RUN chown -R node:node /opt/n8n-python-venv
+# 6. 암호화/인증
+RUN npm install -g crypto-js bcryptjs jsonwebtoken jose
 
-# node 유저로 접근 가능 여부 확인
-USER node
-RUN /opt/n8n-python-venv/bin/python -V && /opt/n8n-python-venv/bin/pip -V
-USER root
+# 7. 템플릿 엔진
+RUN npm install -g handlebars mustache ejs
 
-# 빌드 도구 정리
-RUN apk del gcc musl-dev python3-dev libffi-dev libxml2-dev libxslt-dev || true
+# 8. 압축/아카이브
+RUN npm install -g jszip archiver
 
-# ========================================
-# JavaScript 패키지 설치
-# ========================================
-RUN npm install -g \
-    axios got node-fetch@2 \
-    moment dayjs date-fns luxon \
-    lodash uuid nanoid \
-    cheerio xml2js fast-xml-parser sanitize-html \
-    papaparse xlsx js-yaml ajv \
-    crypto-js bcryptjs jsonwebtoken jose \
-    handlebars mustache ejs \
-    jszip archiver \
-    qrcode iconv-lite pdf-lib zod \
-    bottleneck p-limit p-retry pino \
-    decimal.js big.js \
-    validator slugify html-to-text
+# 9. QR코드/PDF/유틸
+RUN npm install -g qrcode iconv-lite pdf-lib zod
+
+# 10. 속도 제한/동시성/재시도
+RUN npm install -g bottleneck p-limit p-retry pino
+
+# 11. 금융/수학 계산
+RUN npm install -g decimal.js big.js
+
+# 12. 문자열/검증
+RUN npm install -g validator slugify html-to-text
 
 # ========================================
 # 최종 설정
@@ -113,6 +65,9 @@ RUN npm install -g \
 USER node
 WORKDIR /home/node
 
+# ========================================
+# 헬스체크
+# ========================================
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
     CMD wget --no-verbose --tries=1 --spider http://localhost:5678/healthz || exit 1
 
